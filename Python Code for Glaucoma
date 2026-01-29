@@ -1,0 +1,145 @@
+# =========================
+# GLAUCOMA DETECTION USING FUNDUS IMAGES
+# Comparison of ResNet50, MobileNetV2, MobileNetV3,
+# InceptionV3, InceptionResNetV2
+# =========================
+
+import tensorflow as tf
+from tensorflow.keras.applications import (
+    ResNet50,
+    MobileNetV2,
+    MobileNetV3Small,
+    InceptionV3,
+    InceptionResNetV2
+)
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
+import matplotlib.pyplot as plt
+
+# -------------------------
+# PARAMETERS
+# -------------------------
+IMG_SIZE = 224
+BATCH_SIZE = 16
+EPOCHS = 25
+DATASET_DIR = "dataset"   # change if needed
+
+# -------------------------
+# DATA PREPROCESSING
+# -------------------------
+train_gen = ImageDataGenerator(
+    rescale=1./255,
+    rotation_range=15,
+    zoom_range=0.2,
+    horizontal_flip=True
+)
+
+val_gen = ImageDataGenerator(rescale=1./255)
+
+train_data = train_gen.flow_from_directory(
+    DATASET_DIR + "/train",
+    target_size=(IMG_SIZE, IMG_SIZE),
+    batch_size=BATCH_SIZE,
+    class_mode="binary"
+)
+
+val_data = val_gen.flow_from_directory(
+    DATASET_DIR + "/val",
+    target_size=(IMG_SIZE, IMG_SIZE),
+    batch_size=BATCH_SIZE,
+    class_mode="binary"
+)
+
+# -------------------------
+# MODEL BUILDER FUNCTION
+# -------------------------
+def create_model(base_model):
+    base_model.trainable = False
+
+    x = base_model.output
+    x = GlobalAveragePooling2D()(x)
+    x = Dense(256, activation="relu")(x)
+    x = Dropout(0.5)(x)
+    output = Dense(1, activation="sigmoid")(x)
+
+    model = Model(inputs=base_model.input, outputs=output)
+
+    model.compile(
+        optimizer=Adam(learning_rate=0.0001),
+        loss="binary_crossentropy",
+        metrics=["accuracy"]
+    )
+    return model
+
+# -------------------------
+# LOAD MODELS
+# -------------------------
+models = {
+    "ResNet50": create_model(
+        ResNet50(weights="imagenet", include_top=False,
+                 input_shape=(IMG_SIZE, IMG_SIZE, 3))
+    ),
+
+    "MobileNetV2": create_model(
+        MobileNetV2(weights="imagenet", include_top=False,
+                    input_shape=(IMG_SIZE, IMG_SIZE, 3))
+    ),
+
+    "MobileNetV3": create_model(
+        MobileNetV3Small(weights="imagenet", include_top=False,
+                         input_shape=(IMG_SIZE, IMG_SIZE, 3))
+    ),
+
+    "InceptionV3": create_model(
+        InceptionV3(weights="imagenet", include_top=False,
+                     input_shape=(IMG_SIZE, IMG_SIZE, 3))
+    ),
+
+    "InceptionResNetV2": create_model(
+        InceptionResNetV2(weights="imagenet", include_top=False,
+                          input_shape=(IMG_SIZE, IMG_SIZE, 3))
+    )
+}
+
+# -------------------------
+# TRAIN ALL MODELS
+# -------------------------
+histories = {}
+
+for name, model in models.items():
+    print("\n==============================")
+    print(f"Training Model: {name}")
+    print("==============================\n")
+
+    history = model.fit(
+        train_data,
+        validation_data=val_data,
+        epochs=EPOCHS
+    )
+
+    histories[name] = history
+
+# -------------------------
+# PLOT VALIDATION ACCURACY
+# -------------------------
+plt.figure(figsize=(10,6))
+
+for name, history in histories.items():
+    plt.plot(history.history["val_accuracy"], label=name)
+
+plt.title("Validation Accuracy Comparison - Glaucoma Detection")
+plt.xlabel("Epochs")
+plt.ylabel("Accuracy")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# -------------------------
+# SAVE BEST MODEL (ResNet50)
+# -------------------------
+models["ResNet50"].save("Glaucoma_ResNet50_Model.h5")
+
+print("\nTraining Completed Successfully!")
+print("Best model (ResNet50) saved as Glaucoma_ResNet50_Model.h5")
