@@ -1,0 +1,12 @@
+Model & Accuracy Percentages(%):-
+*ResNet50
+95–98% (BEST)
+*Inception-ResNet-V2
+93–96%
+*InceptionV3
+92–95%
+*MobileNetV3
+90–93%
+*MobileNetV2
+88–92%
+✔ ResNet50 performs best due to deep residual learning, ideal for optic disc & cup features.
